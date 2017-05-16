@@ -66,6 +66,7 @@ private:
 	void rtc_set_alarm(uint32_t value);
 
 	int8 timezone = 0;
+	uint32_t lastTS = 0;
 public:
 	typedef struct dt
 	{
@@ -95,9 +96,7 @@ public:
 	void SetTZ(int8 tzoffset);
 	void UpdateDT();
 	void SetTS(uint32_t timeStamp);
-
-	uint32_t NtpToUtc(uint32_t timeStamp);
-	uint32_t UtcToNtp(uint32_t timeStamp);
+	void SetTSFromDT(dt dateTime);
 
 	String PrintDate();
 	String PrintTime();

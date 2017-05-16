@@ -36,15 +36,14 @@
 } while (0)
 
 // Added by Fox
-#define NTP_UNIX_START		3155673600ULL
-#define NTP_UNIX_OFFSET		2208988800ULL	// Diff between 1900 and 1970 (NTP vs UNIX)
-
 #define LEAPYEAR(year)		(!((year) % 4) && (((year) % 100) || !((year) % 400)))
 #define YEARSIZE(year)		(LEAPYEAR(year) ? 366 : 365)
+#define UNIX_START_YEAR		1970
 #define SECS_M	60
 #define SECS_H	3600
 #define SECS_D	86400
 #define SECS_W	604800
+const uint8_t mlen[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 // ===========================
 
 RTC::RTC() {
@@ -106,6 +105,7 @@ uint32_t RTC::GetTS() {
 	return (h << 16) | l;
 }
 
+// timeStamp = seconds since 1970 (UTC)
 void RTC::SetTS(uint32_t timeStamp) {
 	rtc_clear_sync();
 	rtc_wait_sync();
@@ -116,7 +116,7 @@ void RTC::SetTS(uint32_t timeStamp) {
 	rtc_exit_config_mode();
 	rtc_wait_finished();
 
-	DateTime.timestamp = timeStamp;
+	DateTime.timestamp = timeStamp + DateTime.timezone * SECS_H;
 	UpdateDT();
 }
 
@@ -264,22 +264,76 @@ void RTC::__irq_rtcalarm(void) {
 void RTC::SetTZ(int8 tzoffset)
 {
 	DateTime.timezone = tzoffset * SECS_H;
+	UpdateDT();
 }
 
-uint32_t RTC::NtpToUtc(uint32_t timeStamp)
-{
-	return timeStamp + NTP_UNIX_OFFSET;
-}
-
-uint32_t RTC::UtcToNtp(uint32_t timeStamp)
-{
-	return timeStamp - NTP_UNIX_OFFSET;
-}
-
+// TODO: Is it correct?
 void RTC::UpdateDT() {
-	DateTime.timestamp = GetTS();
+	lastTS = DateTime.timestamp;
+	DateTime.timestamp = GetTS() + DateTime.timezone * SECS_D;	// RTC in UTC format
 
+	if (DateTime.timestamp != 0 && DateTime.timestamp == lastTS)
+		return;		// No need to update DT, its already correct
+	
+	// Found somewhere in google...
+	uint32_t seconds = DateTime.timestamp % SECS_D;	// Maybe use "lastTS". Its save 4 byte in ram...
+	uint16_t days = 0;
+	DateTime.year = UNIX_START_YEAR;	// Temp
+	DateTime.month = 0;
 
+	DateTime.second = seconds % 60;
+	seconds /= 60;
+	DateTime.minute = seconds % 60;
+	seconds /= 60;
+	DateTime.hour = seconds % 24;
+	days = seconds / 24;
+	//DateTime.wday = (days + FIRST_DAY_OF_WEEK) % 7;	// Day of week
+
+	while (days >= YEARSIZE(DateTime.year))
+	{
+		days -= YEARSIZE(DateTime.year);
+		DateTime.year++;
+	}
+	// now days = days in current year
+	while (true)
+	{
+		uint8_t daysm = 0;
+		if (DateTime.month == 2 && LEAPYEAR(DateTime.year))
+			daysm = mlen[DateTime.month - 1] + 1;	// 29 days in February if leap year
+		else
+			daysm = mlen[DateTime.month - 1];
+		if (daysm > days)
+			break;
+		else
+			DateTime.month++;	// Month start from 1
+	}
+	DateTime.day = days + 1;
+}
+
+// TODO: Is it correct?
+void RTC::SetTSFromDT(dt dateTime)
+{
+	dateTime.timestamp  = dateTime.second;
+	dateTime.timestamp += dateTime.minute * SECS_M;
+	dateTime.timestamp += dateTime.hour * SECS_H;
+	dateTime.timestamp += dateTime.day * SECS_D;
+	
+	while (dateTime.month > 1)
+	{
+		if (dateTime.month == 2 && LEAPYEAR(dateTime.year))
+			dateTime.timestamp += (mlen[dateTime.month - 1] + 1) * SECS_D;
+		else
+			dateTime.timestamp += (mlen[dateTime.month - 1]) * SECS_D;
+		dateTime.month--;
+	}
+
+	while (dateTime.year > 1970)
+	{
+		dateTime.year--;
+		dateTime.timestamp += YEARSIZE(dateTime.year) * SECS_D;
+	}
+
+	SetTS(dateTime.timestamp - DateTime.timezone * SECS_D);
 }
 
 String RTC::PrintDate() {
