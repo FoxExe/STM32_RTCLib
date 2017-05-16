@@ -95,7 +95,6 @@ public:
 
 	void SetTZ(int8 tzoffset);
 	void UpdateDT();
-	void SetTS(uint32_t timeStamp);
 	void SetTSFromDT(dt dateTime);
 
 	String PrintDate();
