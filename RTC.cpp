@@ -1,4 +1,4 @@
-#include <RTC.h>
+#include "RTC.h"
 
 #define EXTI_RTC_ALARM_BIT	17		// the extra exti interrupts (16,17,18,19) should be defined in exti.h (BUG)
 #define RTC_CRH_OWIE_BIT	2
