@@ -131,7 +131,7 @@ void RTC::detachSecondsInterrupt() {
 
 void RTC::SetTZ(int8 tzoffset)
 {
-	DateTime.timezone = tzoffset * SECS_H;
+	DateTime.timezone = tzoffset;
 	UpdateDT();
 }
 
@@ -142,16 +142,16 @@ void RTC::UpdateDT() {
 
 	if (DateTime.timestamp != 0 && DateTime.timestamp == lastTS)
 		return;		// No need to update DT, its already correct
-
-	uint32_t seconds = DateTime.timestamp % SECS_D;	// Maybe use "lastTS". Its save 4 byte in ram...
+	// TODO: Replace "days" to seconds, then seconds to timestamp (Save ram)
+	uint32_t seconds = DateTime.timestamp;	// Maybe use "lastTS". Its save 4 byte in ram...
 	uint16_t days = 0;
-	DateTime.year = UNIX_START_YEAR;	// Temp
-	DateTime.month = 0;
+	DateTime.year = UNIX_START_YEAR;
+	DateTime.month = 1;		// Month start from 1 (Jan)
 
 	DateTime.second = seconds % 60;
-	seconds /= 60;
+	seconds /= 60;	// seconds = full minutes
 	DateTime.minute = seconds % 60;
-	seconds /= 60;
+	seconds /= 60;	// seconds = full hours
 	DateTime.hour = seconds % 24;
 	days = seconds / 24;
 	//DateTime.wday = (days + FIRST_DAY_OF_WEEK) % 7;	// Day of week
@@ -165,14 +165,17 @@ void RTC::UpdateDT() {
 	while (true)
 	{
 		uint8_t daysm = 0;
-		if (DateTime.month == 2 && LEAPYEAR(DateTime.year))
-			daysm = mlen[DateTime.month - 1] + 1;	// 29 days in February if leap year
+		if (DateTime.month == 2)
+			daysm = mlen[DateTime.month - 1] + ((LEAPYEAR(DateTime.year)) ? 1 : 0);	// 29 days in February if leap year
 		else
 			daysm = mlen[DateTime.month - 1];
+
 		if (daysm > days)
 			break;
-		else
+		else {
 			DateTime.month++;	// Month start from 1
+			days -= daysm;
+		}
 	}
 	DateTime.day = days + 1;
 }

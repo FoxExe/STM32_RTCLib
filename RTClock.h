@@ -20,7 +20,7 @@ private:
 	int8 timezone = 0;
 	uint32_t lastTS = 0;
 	const uint8_t mlen[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-	
+
 public:
 	typedef struct dt
 	{
