@@ -1,16 +1,11 @@
-/**
- * @file   RTClock.h
- * @author Rod Gilchrist <rod@visibleassets.com>, Allester Fox <fox.axon@yandex.ru>
- * @brief  Real Time Clock Class implementation.
- *
- */
-
 #include <utility/rtc_util.h>
 
 #ifndef _RTCLOCK_H_
 #define _RTCLOCK_H_
 
 // Added by Fox
+#define NTP_UNIX_START		3155673600ULL
+#define NTP_UNIX_OFFSET		2208988800ULL	// Time between 1900 and 1970 (NTP vs UNIX)
 #define LEAPYEAR(year)		(!((year) % 4) && (((year) % 100) || !((year) % 400)))
 #define YEARSIZE(year)		(LEAPYEAR(year) ? 366 : 365)
 #define UNIX_START_YEAR		1970
@@ -25,7 +20,7 @@ private:
 	int8 timezone = 0;
 	uint32_t lastTS = 0;
 	const uint8_t mlen[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-
+	
 public:
 	typedef struct dt
 	{
@@ -60,6 +55,8 @@ public:
 	void UpdateDT();
 	void SetTSFromDT(dt dateTime);
 
+	uint32_t NtpToUtc(uint32_t timeStamp);
+	uint32_t UtcToNtp(uint32_t timeStamp);
 };
 
 #endif // _RTCLOCK_H_

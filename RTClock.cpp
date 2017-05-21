@@ -24,13 +24,6 @@
 * SOFTWARE.
 *****************************************************************************/
 
-/**
- * @file   RTClock.cpp
- * @author Rod Gilchrist <rod@visibleassets.com>, Allester Fox <fox.axon@yandex.ru>
- * @brief  Real Time Clock Class implementation.
- *
- */
-
 #include "RTClock.h"
 
 
@@ -145,7 +138,7 @@ void RTC::SetTZ(int8 tzoffset)
 // TODO: Is it correct?
 void RTC::UpdateDT() {
 	lastTS = DateTime.timestamp;
-	DateTime.timestamp = getTime() + DateTime.timezone * SECS_D;	// RTC in UTC format
+	DateTime.timestamp = getTime() + DateTime.timezone * SECS_H;	// RTC in UTC format
 
 	if (DateTime.timestamp != 0 && DateTime.timestamp == lastTS)
 		return;		// No need to update DT, its already correct
@@ -208,4 +201,14 @@ void RTC::SetTSFromDT(dt dateTime)
 	}
 
 	setTime(dateTime.timestamp - DateTime.timezone * SECS_D);
+}
+
+uint32_t RTC::NtpToUtc(uint32_t timeStamp)
+{
+	return timeStamp - NTP_UNIX_OFFSET;
+}
+
+uint32_t RTC::UtcToNtp(uint32_t timeStamp)
+{
+	return timeStamp + NTP_UNIX_OFFSET;
 }
