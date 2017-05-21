@@ -1,3 +1,10 @@
+/**
+ * @file   RTClock.h
+ * @author Rod Gilchrist <rod@visibleassets.com>, Allester Fox <fox.axon@yandex.ru>
+ * @brief  Real Time Clock Class implementation.
+ *
+ */
+
 #include <utility/rtc_util.h>
 
 #ifndef _RTCLOCK_H_

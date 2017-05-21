@@ -24,6 +24,13 @@
 * SOFTWARE.
 *****************************************************************************/
 
+/**
+ * @file   RTClock.cpp
+ * @author Rod Gilchrist <rod@visibleassets.com>, Allester Fox <fox.axon@yandex.ru>
+ * @brief  Real Time Clock Class implementation.
+ *
+ */
+
 #include "RTClock.h"
 
 
