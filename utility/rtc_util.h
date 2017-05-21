@@ -64,7 +64,7 @@ typedef struct rtc_reg_map {
 	__io uint32 ALRL;		/**< Alarm register low */
 } rtc_reg_map;
 		
-/** RTC register map base pointer */
+/** RTCDEV register map base pointer */
 #define RTC_BASE        ((struct rtc_reg_map*)0x40002800)
 
 /** rtc device type */
@@ -73,7 +73,7 @@ typedef struct rtc_dev {
 	voidFuncPtr handlers[];     /**< User IRQ handlers */
 } rtc_dev;
 
-extern rtc_dev *RTC;
+extern rtc_dev *RTCDEV;
 
 
 /*
@@ -107,14 +107,14 @@ extern rtc_dev *RTC;
 #define RTC_CRL_SECF	BIT(RTC_CRL_SECF_BIT)
 
 /**
- * @brief RTC interrupt number.
+ * @brief RTCDEV interrupt number.
  *
  */
 typedef enum rtc_interrupt_id {
 	RTC_SECONDS_INTERRUPT			= 0,	/**< Counter seconds interrupt */
-	RTC_ALARM_GLOBAL_INTERRUPT		= 1,	/**< RTC alarm global interrupt (i.e. __irq_rtc()) */
+	RTC_ALARM_GLOBAL_INTERRUPT		= 1,	/**< RTCDEV alarm global interrupt (i.e. __irq_rtc()) */
 	RTC_OVERFLOW_INTERRUPT			= 2,	/**< Counter overflow interrupt */
-	RTC_ALARM_SPECIFIC_INTERRUPT	= 3		/**< RTC alarm specific interrupt (i.e. __irq_rtcalarm(), wake up from halt/sleep) */
+	RTC_ALARM_SPECIFIC_INTERRUPT	= 3		/**< RTCDEV alarm specific interrupt (i.e. __irq_rtcalarm(), wake up from halt/sleep) */
 } rtc_interrupt_id;
 
 void rtc_attach_interrupt(	uint8 interrupt,
@@ -122,7 +122,7 @@ void rtc_attach_interrupt(	uint8 interrupt,
 void rtc_detach_interrupt(	uint8 interrupt);
 
 /**
- * @brief RTC clock source.
+ * @brief RTCDEV clock source.
  *
  */
 typedef enum rtc_clk_src {
@@ -148,22 +148,22 @@ void rtc_set_alarm(uint32 value);
  * @brief Check (wait if necessary) to see the previous write operation has completed.
  */
 static inline void rtc_wait_finished() {
-	while (*bb_perip(&(RTC->regs)->CRL, RTC_CRL_RTOFF_BIT) == 0);
+	while (*bb_perip(&(RTCDEV->regs)->CRL, RTC_CRL_RTOFF_BIT) == 0);
 }
 
-	/**
+/**
  * @brief Clear the register synchronized flag. The flag is then set by hardware after a write to PRL/DIV or CNT.
  */
 static inline void rtc_clear_sync() {
 	rtc_wait_finished();
-	*bb_perip(&(RTC->regs)->CRL, RTC_CRL_RSF_BIT) = 0;
+	*bb_perip(&(RTCDEV->regs)->CRL, RTC_CRL_RSF_BIT) = 0;
 }
 
 /**
- * @brief Check (wait if necessary) to see RTC registers are synchronized.
+ * @brief Check (wait if necessary) to see RTCDEV registers are synchronized.
  */
 static inline void rtc_wait_sync() {
-	while (*bb_perip(&(RTC->regs)->CRL, RTC_CRL_RSF_BIT) == 0);
+	while (*bb_perip(&(RTCDEV->regs)->CRL, RTC_CRL_RSF_BIT) == 0);
 }
 
 /**
@@ -171,7 +171,7 @@ static inline void rtc_wait_sync() {
  */
 static inline void rtc_enter_config_mode() {
 	rtc_wait_finished();
-	*bb_perip(&(RTC->regs)->CRL, RTC_CRL_CNF_BIT) = 1;
+	*bb_perip(&(RTCDEV->regs)->CRL, RTC_CRL_CNF_BIT) = 1;
 }
 
 /**
@@ -179,11 +179,11 @@ static inline void rtc_enter_config_mode() {
  */
 static inline void rtc_exit_config_mode() {
 	rtc_wait_finished();
-	*bb_perip(&(RTC->regs)->CRL, RTC_CRL_CNF_BIT) = 0;
+	*bb_perip(&(RTCDEV->regs)->CRL, RTC_CRL_CNF_BIT) = 0;
 }
 
 /**
- * @brief Enable an RTC interrupt.
+ * @brief Enable an RTCDEV interrupt.
  * @param interrupt Interrupt number to enable; this may be any rtc_interrupt_id.
  * @see rtc_interrupt_id
  */
@@ -193,11 +193,11 @@ static inline void rtc_enable_irq(uint8 interrupt) {
 		*bb_perip(&EXTI_BASE->IMR, EXTI_RTC_ALARM_BIT) = 1;
 		*bb_perip(&EXTI_BASE->RTSR, EXTI_RTC_ALARM_BIT) = 1;
 	}
-	else *bb_perip(&(RTC->regs)->CRH, interrupt) = 1;
+	else *bb_perip(&(RTCDEV->regs)->CRH, interrupt) = 1;
 }
 
 /**
- * @brief Disable an RTC interrupt.
+ * @brief Disable an RTCDEV interrupt.
  * @param interrupt Interrupt number to disable; this may be any rtc_interrupt_id value.
  * @see rtc_interrupt_id
  */
@@ -207,11 +207,11 @@ static inline void rtc_disable_irq(uint8 interrupt) {
 		*bb_perip(&EXTI_BASE->IMR, EXTI_RTC_ALARM_BIT) = 0;
 		*bb_perip(&EXTI_BASE->RTSR, EXTI_RTC_ALARM_BIT) = 0;
 	}
-	else *bb_perip(&(RTC->regs)->CRH, interrupt) = 0;
+	else *bb_perip(&(RTCDEV->regs)->CRH, interrupt) = 0;
 }
 
 /**
- * @brief Enable an RTC alarm event. Enabling this event allows waking up from deep sleep via WFE.
+ * @brief Enable an RTCDEV alarm event. Enabling this event allows waking up from deep sleep via WFE.
  * @see rtc_interrupt_id
  */
 static inline void rtc_enable_alarm_event() {
@@ -220,7 +220,7 @@ static inline void rtc_enable_alarm_event() {
 }
 
 /**
- * @brief Disable the RTC alarm event.
+ * @brief Disable the RTCDEV alarm event.
  * @see rtc_interrupt_id
  */
 static inline void rtc_disable_alarm_event() {
@@ -233,7 +233,7 @@ static inline void rtc_disable_alarm_event() {
  * @see rtc_interrupt_id
  */
 static inline int rtc_is_second() {
-	return *bb_perip(&(RTC->regs)->CRL, RTC_CRL_SECF_BIT);
+	return *bb_perip(&(RTCDEV->regs)->CRL, RTC_CRL_SECF_BIT);
 }
 
 /**
@@ -241,7 +241,7 @@ static inline int rtc_is_second() {
  * @see rtc_interrupt_id
  */
 static inline int rtc_is_alarm() {
-	return *bb_perip(&(RTC->regs)->CRL, RTC_CRL_ALRF_BIT);
+	return *bb_perip(&(RTCDEV->regs)->CRL, RTC_CRL_ALRF_BIT);
 }
 
 /**
@@ -249,7 +249,7 @@ static inline int rtc_is_alarm() {
  * @see rtc_interrupt_id
  */
 static inline int rtc_is_overflow() {
-	return *bb_perip(&(RTC->regs)->CRL, RTC_CRL_OWF_BIT);
+	return *bb_perip(&(RTCDEV->regs)->CRL, RTC_CRL_OWF_BIT);
 }
 
 

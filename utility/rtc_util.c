@@ -40,49 +40,7 @@ static rtc_dev rtc = {
     .handlers     = { [NR_RTC_HANDLERS - 1] = 0 },
 };
 
-rtc_dev *RTC = &rtc;
-
-
-/**
- * Initialize the RTC interface, and enable access to its register map and 
- * the backup registers.
- */
-void rtc_init(rtc_clk_src src) {
-
-	bkp_init();		// turn on peripheral clocks to PWR and BKP and reset the backup domain via RCC registers.
-					// (we reset the backup domain here because we must in order to change the rtc clock source).
-
-	bkp_enable_writes();	// enable writes to the backup registers and the RTC registers via the DBP bit in the PWR control register
-
-	RCC_BASE->BDCR &= ~RCC_BDCR_RTCSEL;
-	switch (src) {
-		case RTCSEL_NONE:
-			RCC_BASE->BDCR = RCC_BDCR_RTCSEL_NONE;
-			break;
-
-		case RTCSEL_LSE:
-			rcc_start_lse();
-			RCC_BASE->BDCR |= RCC_BDCR_RTCSEL_LSE;
-
-			break;
-
-		case RTCSEL_LSI:
-		case RTCSEL_DEFAULT:
-			rcc_start_lsi();
-			RCC_BASE->BDCR |= RCC_BDCR_RTCSEL_LSI;
-			break;
-
-		case RTCSEL_HSE:			// This selection uses HSE/128 as the RTC source (i.e. 64 kHz with an 8 mHz xtal)
-			rcc_start_hse();
-			RCC_BASE->BDCR |= RCC_BDCR_RTCSEL_HSE;
-			break;
-	}
-	bb_peri_set_bit(&RCC_BASE->BDCR, RCC_BDCR_RTCEN_BIT, 1); // Enable the RTC
-
-	rtc_clear_sync();
-	rtc_wait_sync();
-	rtc_wait_finished();
-}
+rtc_dev *RTCDEV = &rtc;
 
 /**
  * @brief Attach a RTC interrupt.
@@ -92,7 +50,7 @@ void rtc_init(rtc_clk_src src) {
  */
 void rtc_attach_interrupt(	uint8 interrupt,
                             voidFuncPtr handler) {
-    RTC->handlers[interrupt] = handler;
+    RTCDEV->handlers[interrupt] = handler;
     rtc_enable_irq(interrupt);
 	switch (interrupt) {
 		case RTC_SECONDS_INTERRUPT: nvic_irq_enable(NVIC_RTC); break;
@@ -109,7 +67,7 @@ void rtc_attach_interrupt(	uint8 interrupt,
  */
 void rtc_detach_interrupt(uint8 interrupt) {
 	rtc_disable_irq(interrupt);
-    RTC->handlers[interrupt] = NULL;
+    RTCDEV->handlers[interrupt] = NULL;
 }
 
 /*
@@ -128,9 +86,9 @@ void rtc_detach_interrupt(uint8 interrupt) {
 } while (0)
 
 static inline void dispatch_multiple_rtc_irq() {
-    rtc_reg_map *regs = RTC->regs;
+    rtc_reg_map *regs = RTCDEV->regs;
     uint32 dsr = regs->CRH & regs->CRL;
-    void (**hs)(void) = RTC->handlers;
+    void (**hs)(void) = RTCDEV->handlers;
     uint32 handled = 0;
 
     handle_irq(dsr, RTC_CRL_SECF, hs, RTC_SECONDS_INTERRUPT, handled);
@@ -148,44 +106,13 @@ void __irq_rtc(void) {
  * This function assumes that the interrupt corresponding to `RTC_ALARM_INTERRUPT' has
  * in fact occurred (i.e., it doesn't check DIER & SR). */
 void __irq_rtcalarm(void) {
-    void (*handler)(void) = RTC->handlers[RTC_ALARM_SPECIFIC_INTERRUPT];
+    void (*handler)(void) = RTCDEV->handlers[RTC_ALARM_SPECIFIC_INTERRUPT];
     if (handler) {
         handler();
 		*bb_perip(&EXTI_BASE->PR, EXTI_RTC_ALARM_BIT) = 1;
 		//asm volatile("nop");		// See comment in exti.c. Doesn't seem to be required.
 		//asm volatile("nop");
     }
-}
-
-/**
- * @brief Returns the rtc's counter (i.e. time/date) value.
- *
- * This value is likely to be inaccurate if the counter is running
- * with a low prescaler.
- */
-uint32 rtc_get_count() {
-	uint32 h, l;
-	rtc_clear_sync();
-	rtc_wait_sync();
-	rtc_wait_finished();
-	h = RTC->regs->CNTH & 0xffff;
-	l = RTC->regs->CNTL & 0xffff;
-	return (h << 16) | l;
-}
-
-/**
- * @brief Sets the counter value (i.e. time/date) for the rtc.
- * @param value New counter value
- */
-void rtc_set_count(uint32 value) {
-	rtc_clear_sync();
-	rtc_wait_sync();
-	rtc_wait_finished();
-	rtc_enter_config_mode();
-	RTC->regs->CNTH = (value >> 16) & 0xffff;
-	RTC->regs->CNTL = value & 0xffff;
-	rtc_exit_config_mode();
-	rtc_wait_finished();
 }
 
 /**
@@ -197,8 +124,8 @@ void rtc_set_prescaler_load(uint32 value) {
 	rtc_wait_sync();
 	rtc_wait_finished();
 	rtc_enter_config_mode();
-	RTC->regs->PRLH = (value >> 16) & 0xffff;
-	RTC->regs->PRLL = value & 0xffff;
+	RTCDEV->regs->PRLH = (value >> 16) & 0xffff;
+	RTCDEV->regs->PRLL = value & 0xffff;
 	rtc_exit_config_mode();
 	rtc_wait_finished();
 }
@@ -211,8 +138,8 @@ uint32 rtc_get_divider() {
 	rtc_clear_sync();
 	rtc_wait_sync();
 	rtc_wait_finished();
-	h = RTC->regs->DIVH & 0x000f;
-	l = RTC->regs->DIVL & 0xffff;
+	h = RTCDEV->regs->DIVH & 0x000f;
+	l = RTCDEV->regs->DIVL & 0xffff;
 	return (h << 16) | l;
 }
 
@@ -225,8 +152,8 @@ void rtc_set_alarm(uint32 value) {
 	rtc_wait_sync();
 	rtc_wait_finished();
 	rtc_enter_config_mode();
-	RTC->regs->ALRH = (value >> 16) & 0xffff;
-	RTC->regs->ALRL = value & 0xffff;
+	RTCDEV->regs->ALRH = (value >> 16) & 0xffff;
+	RTCDEV->regs->ALRL = value & 0xffff;
 	rtc_exit_config_mode();
 	rtc_wait_finished();
 }
